@@ -1,0 +1,46 @@
+import type { RemoteKey } from '../../core/types';
+
+/** Android KeyEvent codes, as used by RemoteKeyInject. */
+export const ANDROID_KEYCODES: Record<RemoteKey, number> = {
+  POWER: 26,
+  HOME: 3,
+  BACK: 4,
+  MENU: 82,
+  SETTINGS: 176,
+  SOURCE: 178, // KEYCODE_TV_INPUT
+  INFO: 165,
+  GUIDE: 172,
+  EXIT: 111, // KEYCODE_ESCAPE
+  UP: 19,
+  DOWN: 20,
+  LEFT: 21,
+  RIGHT: 22,
+  OK: 23, // KEYCODE_DPAD_CENTER
+  VOL_UP: 24,
+  VOL_DOWN: 25,
+  MUTE: 164,
+  CH_UP: 166,
+  CH_DOWN: 167,
+  NUM_0: 7,
+  NUM_1: 8,
+  NUM_2: 9,
+  NUM_3: 10,
+  NUM_4: 11,
+  NUM_5: 12,
+  NUM_6: 13,
+  NUM_7: 14,
+  NUM_8: 15,
+  NUM_9: 16,
+  PLAY: 126,
+  PAUSE: 127,
+  PLAY_PAUSE: 85,
+  STOP: 86,
+  REWIND: 89,
+  FAST_FORWARD: 90,
+  PREV: 88,
+  NEXT: 87,
+  RED: 183,
+  GREEN: 184,
+  YELLOW: 185,
+  BLUE: 186,
+};
