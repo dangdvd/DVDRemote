@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { isBluetoothMouseSupported } from '../../bluetooth/native';
+import { useBluetoothMouse } from '../../bluetooth/useBluetoothMouse';
 import type { AppId, RemoteKey, TvDevice } from '../../core/types';
 import { KIND_LABELS } from '../../drivers';
 import { wakeOnLan } from '../../net/wol';
+import { BluetoothMousePanel } from '../components/BluetoothMousePanel';
 import { DPad } from '../components/DPad';
 import { PromptModal } from '../components/PromptModal';
 import { RemoteButton } from '../components/RemoteButton';
@@ -20,6 +23,8 @@ const APP_LABELS: Record<AppId, { label: string; color: string }> = {
 };
 
 type Tab = 'remote' | 'numbers' | 'touchpad';
+/** bluetooth: the phone acts as a Bluetooth mouse (Android phones only). */
+type PadMode = TouchpadMode | 'bluetooth';
 
 interface Props {
   device: TvDevice;
@@ -32,13 +37,24 @@ export function RemoteScreen({ device, onBack, onSaveDevice }: Props) {
   const [tab, setTab] = useState<Tab>('remote');
   const [typing, setTyping] = useState(false);
   const [info, setInfo] = useState('');
-  const [padMode, setPadMode] = useState<TouchpadMode | null>(null);
+  const [padMode, setPadMode] = useState<PadMode | null>(null);
+  const bluetoothSupported = useMemo(isBluetoothMouseSupported, []);
+  const btMouse = useBluetoothMouse(device, onSaveDevice);
   const [padActive, setPadActive] = useState(false);
 
   const key = (k: RemoteKey) => run((d) => d.sendKey(k));
   const caps = driver?.capabilities;
-  // TVs with a cursor (LG, Samsung) start in pointer mode; the others only have swipe mode.
-  const touchpadMode: TouchpadMode = caps?.pointer ? (padMode ?? 'pointer') : 'swipe';
+  // TVs with a cursor over Wi-Fi (LG, Samsung) offer it; the others get swipe mode, plus a real
+  // cursor through Bluetooth when the phone can act as a Bluetooth mouse.
+  const padModes: [PadMode, string][] = caps?.pointer
+    ? [
+        ['pointer', 'Con trỏ chuột'],
+        ['swipe', 'Vuốt'],
+      ]
+    : [['swipe', 'Vuốt'], ...(bluetoothSupported ? ([['bluetooth', 'Chuột Bluetooth']] as [PadMode, string][]) : [])];
+  const activeMode: PadMode = padModes.some(([id]) => id === padMode) ? padMode! : padModes[0][0];
+  const touchpadMode: TouchpadMode = activeMode === 'swipe' ? 'swipe' : 'pointer';
+  const usesBluetooth = activeMode === 'bluetooth';
 
   const power = async () => {
     if (status === 'connected') return key('POWER');
@@ -138,33 +154,41 @@ export function RemoteScreen({ device, onBack, onSaveDevice }: Props) {
 
         {tab === 'touchpad' ? (
           <View style={styles.touchpadArea}>
-            {caps?.pointer ? (
+            {padModes.length > 1 ? (
               <View style={styles.modeSwitch}>
-                {(
-                  [
-                    ['pointer', 'Con trỏ chuột'],
-                    ['swipe', 'Vuốt'],
-                  ] as [TouchpadMode, string][]
-                ).map(([id, label]) => (
+                {padModes.map(([id, label]) => (
                   <Pressable
                     key={id}
                     onPress={() => setPadMode(id)}
-                    style={[styles.modeButton, touchpadMode === id && styles.tabActive]}
+                    style={[styles.modeButton, activeMode === id && styles.tabActive]}
                   >
-                    <Text style={[styles.tabText, touchpadMode === id && styles.tabTextActive]}>{label}</Text>
+                    <Text style={[styles.tabText, activeMode === id && styles.tabTextActive]}>{label}</Text>
                   </Pressable>
                 ))}
               </View>
-            ) : (
+            ) : null}
+            {!caps?.pointer && activeMode === 'swipe' ? (
               <Text style={styles.note}>
                 TV này không có con trỏ chuột qua Wi-Fi: vuốt trên touchpad để di chuyển vùng chọn như phím mũi tên.
+                {bluetoothSupported
+                  ? ' Muốn có con trỏ thật, chọn “Chuột Bluetooth”.'
+                  : Platform.OS === 'ios'
+                    ? ' (Chế độ chuột Bluetooth chỉ có trên điện thoại Android.)'
+                    : ''}
               </Text>
-            )}
+            ) : null}
+            {usesBluetooth ? (
+              <BluetoothMousePanel mouse={btMouse} rememberedAddress={device.credentials?.btAddress} />
+            ) : null}
             <Touchpad
               mode={touchpadMode}
-              onTap={() => (touchpadMode === 'pointer' ? run((d) => d.click?.()) : key('OK'))}
-              onMove={(dx, dy) => run((d) => d.movePointer?.(dx, dy))}
-              onScroll={driver?.scroll ? (dy) => run((d) => d.scroll?.(dy)) : undefined}
+              onTap={() =>
+                usesBluetooth ? btMouse.click() : touchpadMode === 'pointer' ? run((d) => d.click?.()) : key('OK')
+              }
+              onMove={(dx, dy) => (usesBluetooth ? btMouse.move(dx, dy) : run((d) => d.movePointer?.(dx, dy)))}
+              onScroll={
+                usesBluetooth ? btMouse.scroll : driver?.scroll ? (dy) => run((d) => d.scroll?.(dy)) : undefined
+              }
               onSwipe={key}
               onActiveChange={setPadActive}
             />

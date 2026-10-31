@@ -17,7 +17,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "DVD Remote cần truy cập mạng nội bộ để tìm và điều khiển TV của bạn.",
-        "NSBonjourServices": ["_androidtvremote2._tcp", "_googlecast._tcp"],
+        "NSBonjourServices": [
+          "_androidtvremote2._tcp",
+          "_googlecast._tcp"
+        ],
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
@@ -37,7 +40,9 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_ADVERTISE"
       ],
       "predictiveBackGestureEnabled": false
     },

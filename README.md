@@ -30,7 +30,19 @@ Mỗi hãng TV dùng một hệ điều hành, và mỗi hệ điều hành có 
     chế độ **Vuốt**.
   - Android TV / Google TV, Xiaomi: chế độ **Vuốt** – vuốt để di chuyển vùng chọn như phím mũi tên (vuốt dài để đi qua
     nhiều mục), chạm để chọn (OK). Giao thức Android TV Remote không có lệnh chuột, nên không hiện con trỏ trên các
-    TV này (ứng dụng Google TV chính hãng cũng vậy).
+    TV này qua Wi-Fi (ứng dụng Google TV chính hãng cũng vậy).
+- **Chuột Bluetooth** (chỉ trên điện thoại Android 9 trở lên): điện thoại đóng vai một con chuột Bluetooth, nên Android
+  TV hiện **con trỏ chuột thật**. Kéo để di chuột, chạm để bấm, 2 ngón để cuộn, nút "Chuột phải" để quay lại.
+  iPhone không cho ứng dụng làm chuột Bluetooth nên không có chế độ này.
+
+### Dùng chuột Bluetooth (Android)
+
+1. Mở TV trong app → tab **Touchpad** → **Chuột Bluetooth** → **Bật chuột Bluetooth** (cấp quyền *Thiết bị ở gần*).
+2. Lần đầu: bấm **Cho TV tìm thấy điện thoại**, rồi trên TV vào *Cài đặt → Điều khiển từ xa & phụ kiện → Thêm phụ
+   kiện* và chọn tên điện thoại. Xác nhận mã ghép đôi trên cả hai máy.
+3. Các lần sau app tự kết nối lại với TV đã ghép đôi, hoặc chạm tên TV trong danh sách *Đã ghép đôi*.
+
+Mã native nằm ở `modules/bluetooth-hid` (Expo module cục bộ, Kotlin, API `BluetoothHidDevice`).
 - **Mở nhanh ứng dụng**: YouTube, Netflix, Spotify, Prime Video, Disney+.
 - **Bật TV từ chế độ chờ** bằng Wake-on-LAN (tự lấy MAC của LG/Samsung, hoặc nhập tay).
 - Ghi nhớ TV và thông tin ghép nối, tự kết nối lại khi mở app.
@@ -152,6 +164,7 @@ src/drivers/tizen.ts         Samsung Tizen (WebSocket samsung.remote.control)
 src/drivers/xiaomi-legacy.ts Xiaomi PatchWall đời cũ (HTTP 6095)
 src/discovery/               Tìm TV: mDNS + quét cổng
 src/ui/                      Giao diện: danh sách TV, remote, touchpad, hộp nhập mã
+src/bluetooth/               Chế độ chuột Bluetooth (JS); mã native ở modules/bluetooth-hid (Android)
 __tests__/                   Test đơn vị + TV giả lập cho test tích hợp
 plugins/                     Config plugin Expo (ký APK bản phát hành)
 scripts/set-version.js       Ghi phiên bản từ tag vào app.json
