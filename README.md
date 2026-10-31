@@ -56,7 +56,7 @@ npx eas-cli@latest build --platform ios --profile preview
 
 ```bash
 npm run android   # cần Android Studio + điện thoại/emulator
-npm run ios       # cần macOS + Xcode 27 trở lên (Xcode 26 không build được Expo SDK 58)
+npm run ios       # cần macOS + Xcode mới (Xcode 26.3 trở xuống không build được Expo SDK 58)
 ```
 
 ### Phát triển
