@@ -61,7 +61,7 @@ npx eas-cli@latest build --platform ios --profile preview
 
 ```bash
 npm run android   # cần Android Studio + điện thoại/emulator
-npm run ios       # cần macOS + Xcode
+npm run ios       # cần macOS + Xcode mới (Xcode 26.3 trở xuống không build được Expo SDK 58)
 ```
 
 ### Phát triển
@@ -73,7 +73,8 @@ npm start                                                          # sau đó ch
 
 ### Phát hành (GitHub Releases)
 
-Workflow `.github/workflows/release.yml` tự động chạy test, build và đăng bản phát hành khi có tag phiên bản:
+Workflow `.github/workflows/release.yml` chạy test và build trên mọi pull request vào `main` (file APK/IPA tải được
+ở mục *Artifacts* của lần chạy trong tab Actions), và đăng bản phát hành khi có tag phiên bản:
 
 ```bash
 git tag v1.0.1
