@@ -25,7 +25,12 @@ Mỗi hãng TV dùng một hệ điều hành, và mỗi hệ điều hành có 
 - Âm lượng, tắt tiếng, chuyển kênh (giữ nút để lặp), bàn phím số, 4 nút màu, Info/Guide/Exit.
 - Điều khiển phát media: phát/tạm dừng, tua, bài trước/sau.
 - **Gõ chữ** từ bàn phím điện thoại (hỗ trợ tiếng Việt có dấu).
-- **Touchpad** di chuyển con trỏ (LG webOS, Samsung).
+- **Touchpad cho mọi TV**:
+  - LG webOS, Samsung: chế độ **Con trỏ chuột** (kéo để di chuột trên TV, chạm để bấm, 2 ngón để cuộn trên LG) hoặc
+    chế độ **Vuốt**.
+  - Android TV / Google TV, Xiaomi: chế độ **Vuốt** – vuốt để di chuyển vùng chọn như phím mũi tên (vuốt dài để đi qua
+    nhiều mục), chạm để chọn (OK). Giao thức Android TV Remote không có lệnh chuột, nên không hiện con trỏ trên các
+    TV này (ứng dụng Google TV chính hãng cũng vậy).
 - **Mở nhanh ứng dụng**: YouTube, Netflix, Spotify, Prime Video, Disney+.
 - **Bật TV từ chế độ chờ** bằng Wake-on-LAN (tự lấy MAC của LG/Samsung, hoặc nhập tay).
 - Ghi nhớ TV và thông tin ghép nối, tự kết nối lại khi mở app.

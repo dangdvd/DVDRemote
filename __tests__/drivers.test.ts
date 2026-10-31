@@ -108,9 +108,16 @@ describe('Samsung Tizen driver against a fake 2017 TV on ws:8001', () => {
 
     await driver.sendKey('VOL_UP');
     await driver.sendText!('Tiếng Việt');
-    await waitFor(() => tv.messages.length === 3);
+    await driver.movePointer!(12.4, -7.6);
+    await waitFor(() => tv.messages.length === 4);
     expect(tv.messages[0].params.DataOfCmd).toBe('KEY_VOLUP');
     expect(Buffer.from(tv.messages[1].params.Cmd, 'base64').toString('utf8')).toBe('Tiếng Việt');
+    // Relative move; Time is the move duration in ms, not a timestamp.
+    expect(tv.messages[3].params).toEqual({
+      Cmd: 'Move',
+      Position: { x: 12, y: -8, Time: '0' },
+      TypeOfRemote: 'ProcessMouseDevice',
+    });
     driver.disconnect();
   });
 });
