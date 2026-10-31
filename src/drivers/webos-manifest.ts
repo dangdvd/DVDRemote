@@ -1,5 +1,7 @@
 // Registration manifest used by LG's own remote apps. The signature covers the "signed"
-// block, so it must be sent exactly as is.
+// block, so it must be sent exactly as is. Firmware that does not honour the signed block only
+// grants what the unsigned "permissions" list asks for, so that list repeats the signed ones
+// too (text input and mouse included), like Home Assistant's aiowebostv, which sends only it.
 export const WEBOS_MANIFEST = {
   manifestVersion: 1,
   appVersion: '1.1',
@@ -82,6 +84,18 @@ export const WEBOS_MANIFEST = {
     'SCAN_TV_CHANNELS',
     'CONTROL_TV_POWER',
     'CONTROL_WOL',
+    'TEST_SECURE',
+    'CONTROL_INPUT_TEXT',
+    'CONTROL_MOUSE_AND_KEYBOARD',
+    'READ_INSTALLED_APPS',
+    'READ_LGE_SDX',
+    'READ_NOTIFICATIONS',
+    'SEARCH',
+    'WRITE_SETTINGS',
+    'WRITE_NOTIFICATION_ALERT',
+    'READ_UPDATE_INFO',
+    'UPDATE_FROM_REMOTE_APP',
+    'READ_LGE_TV_INPUT_EVENTS',
   ],
   signatures: [
     {

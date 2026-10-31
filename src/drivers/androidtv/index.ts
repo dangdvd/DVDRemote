@@ -14,6 +14,7 @@ import { ProtoConnection } from './connection';
 import { ANDROID_KEYCODES } from './keycodes';
 import {
   CLIENT_FEATURES,
+  Feature,
   Remote,
   REMOTE_PORT,
   remoteAppLink,
@@ -24,6 +25,7 @@ import {
   remoteSetActive,
 } from './messages';
 import { pairAndroidTv } from './pairing';
+import { textToKeyCodes } from './textKeys';
 
 const APP_LINKS: Record<AppId, string> = {
   youtube: 'https://www.youtube.com',
@@ -51,6 +53,10 @@ export class AndroidTvDriver implements TvDriver {
   private conn: ProtoConnection | null = null;
   private imeCounter = 0;
   private fieldCounter = 0;
+  /** The TV accepted the IME feature, so it can take whole strings (any language). */
+  private imeSupported = false;
+  /** The TV told us about its focused text field, so imeCounter/fieldCounter are current. */
+  private imeFieldKnown = false;
   private manualClose = false;
 
   constructor(private readonly device: TvDevice) {}
@@ -87,6 +93,8 @@ export class AndroidTvDriver implements TvDriver {
 
   private async openRemote(identity: Awaited<ReturnType<typeof getClientIdentity>>): Promise<void> {
     const conn = await ProtoConnection.open(this.device.host, REMOTE_PORT, identity);
+    this.imeFieldKnown = false;
+    let features = CLIENT_FEATURES;
     await new Promise<void>((resolve, reject) => {
       let ready = false;
       const timer = setTimeout(() => {
@@ -118,10 +126,12 @@ export class AndroidTvDriver implements TvDriver {
       conn.onMessage = (msg: ProtoMessage) => {
         if (msg.has(Remote.CONFIGURE)) {
           const tvFeatures = msg.message(Remote.CONFIGURE)?.uint(1) ?? CLIENT_FEATURES;
-          const features = tvFeatures & CLIENT_FEATURES || CLIENT_FEATURES;
+          features = tvFeatures & CLIENT_FEATURES || CLIENT_FEATURES;
+          this.imeSupported = (features & Feature.IME) !== 0;
           conn.send(remoteConfigure(features, 'DVD Remote', Platform.OS));
         } else if (msg.has(Remote.SET_ACTIVE)) {
-          conn.send(remoteSetActive(CLIENT_FEATURES));
+          // Activate only what both sides support, like the configure answer.
+          conn.send(remoteSetActive(features));
           activated = true;
         } else if (msg.has(Remote.PING_REQUEST)) {
           conn.send(remotePingResponse(msg.message(Remote.PING_REQUEST)?.uint(1) ?? 0));
@@ -131,6 +141,7 @@ export class AndroidTvDriver implements TvDriver {
           const edit = msg.message(Remote.IME_BATCH_EDIT);
           this.imeCounter = edit?.uint(1) ?? 0;
           this.fieldCounter = edit?.uint(2) ?? 0;
+          this.imeFieldKnown = true;
         } else if (msg.has(Remote.ERROR)) {
           if (!ready) fail(new Error('TV báo lỗi kết nối'));
         }
@@ -153,9 +164,30 @@ export class AndroidTvDriver implements TvDriver {
     this.send(remoteKeyInject(ANDROID_KEYCODES[key]));
   }
 
+  /**
+   * The TV ignores an IME edit whose counters do not match its focused field. It sends them only
+   * when a field gains focus while we are connected, so a keyboard that was already open, or a TV
+   * without the IME feature, gets the text typed as key presses instead.
+   */
   async sendText(text: string): Promise<void> {
     if (!text) return;
-    this.send(remoteImeText(text, this.imeCounter, this.fieldCounter));
+    if (this.imeSupported && this.imeFieldKnown) {
+      this.send(remoteImeText(text, this.imeCounter, this.fieldCounter));
+      return;
+    }
+    const codes = textToKeyCodes(text);
+    if (codes) {
+      for (const code of codes) this.send(remoteKeyInject(code));
+      return;
+    }
+    if (this.imeSupported) {
+      // Best effort for text that has no keys (Vietnamese diacritics): counters may be stale.
+      this.send(remoteImeText(text, this.imeCounter, this.fieldCounter));
+      return;
+    }
+    throw new Error(
+      'TV này chỉ nhận chữ không dấu qua Wi-Fi (a-z, 0-9). Hãy gõ không dấu, hoặc dùng bàn phím trên TV.',
+    );
   }
 
   async launchApp(app: AppId): Promise<void> {
