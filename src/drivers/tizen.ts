@@ -67,6 +67,8 @@ export class TizenDriver implements TvDriver {
   private ws: MiniWebSocket | null = null;
   private manualClose = false;
   private playing = false;
+  /** custom.remote.textReceived was sent for the TV's current keyboard session. */
+  private textAnnounced = false;
 
   constructor(private readonly device: TvDevice) {}
 
@@ -121,12 +123,23 @@ export class TizenDriver implements TvDriver {
     if (token && token !== this.device.credentials?.token) {
       ctx.saveDevice({ credentials: { ...this.device.credentials, token } });
     }
-    ws.onMessage = () => {};
+    ws.onMessage = (text) => this.handleEvent(text);
     ws.onClose = (err) => {
       this.ws = null;
       if (!this.manualClose) this.onDisconnect?.(err);
     };
     this.ws = ws;
+  }
+
+  private handleEvent(text: string) {
+    let event: string | undefined;
+    try {
+      event = JSON.parse(text)?.event;
+    } catch {
+      return;
+    }
+    // A new keyboard session on the TV needs the announcement again.
+    if (event === 'ms.remote.imeStart' || event === 'ms.remote.imeEnd') this.textAnnounced = false;
   }
 
   disconnect(): void {
@@ -152,7 +165,13 @@ export class TizenDriver implements TvDriver {
     this.send({ Cmd: 'Click', DataOfCmd: code, Option: 'false', TypeOfRemote: 'SendRemoteKey' });
   }
 
+  /** Works only while the TV shows its keyboard, i.e. a text field on the TV is selected. */
   async sendText(text: string): Promise<void> {
+    if (!this.textAnnounced) {
+      // Some models ignore text until this broadcast has been sent once per keyboard session.
+      this.send({ event: 'custom.remote.textReceived', to: 'broadcast' }, 'ms.channel.emit');
+      this.textAnnounced = true;
+    }
     this.send({ Cmd: base64EncodeText(text), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' });
     this.send({ TypeOfRemote: 'SendInputEnd' });
   }
