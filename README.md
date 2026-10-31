@@ -25,7 +25,12 @@ Mỗi hãng TV dùng một hệ điều hành, và mỗi hệ điều hành có 
 - Âm lượng, tắt tiếng, chuyển kênh (giữ nút để lặp), bàn phím số, 4 nút màu, Info/Guide/Exit.
 - Điều khiển phát media: phát/tạm dừng, tua, bài trước/sau.
 - **Gõ chữ** từ bàn phím điện thoại (hỗ trợ tiếng Việt có dấu).
-- **Touchpad** di chuyển con trỏ (LG webOS, Samsung).
+- **Touchpad cho mọi TV**:
+  - LG webOS, Samsung: chế độ **Con trỏ chuột** (kéo để di chuột trên TV, chạm để bấm, 2 ngón để cuộn trên LG) hoặc
+    chế độ **Vuốt**.
+  - Android TV / Google TV, Xiaomi: chế độ **Vuốt** – vuốt để di chuyển vùng chọn như phím mũi tên (vuốt dài để đi qua
+    nhiều mục), chạm để chọn (OK). Giao thức Android TV Remote không có lệnh chuột, nên không hiện con trỏ trên các
+    TV này (ứng dụng Google TV chính hãng cũng vậy).
 - **Mở nhanh ứng dụng**: YouTube, Netflix, Spotify, Prime Video, Disney+.
 - **Bật TV từ chế độ chờ** bằng Wake-on-LAN (tự lấy MAC của LG/Samsung, hoặc nhập tay).
 - Ghi nhớ TV và thông tin ghép nối, tự kết nối lại khi mở app.
@@ -56,7 +61,7 @@ npx eas-cli@latest build --platform ios --profile preview
 
 ```bash
 npm run android   # cần Android Studio + điện thoại/emulator
-npm run ios       # cần macOS + Xcode
+npm run ios       # cần macOS + Xcode mới (Xcode 26.3 trở xuống không build được Expo SDK 58)
 ```
 
 ### Phát triển
@@ -68,7 +73,8 @@ npm start                                                          # sau đó ch
 
 ### Phát hành (GitHub Releases)
 
-Workflow `.github/workflows/release.yml` tự động chạy test, build và đăng bản phát hành khi có tag phiên bản:
+Workflow `.github/workflows/release.yml` chạy test và build trên mọi pull request vào `main` (file APK/IPA tải được
+ở mục *Artifacts* của lần chạy trong tab Actions), và đăng bản phát hành khi có tag phiên bản:
 
 ```bash
 git tag v1.0.1
@@ -164,5 +170,10 @@ của React Native sẽ từ chối kết nối. App tự cài đặt WebSocket 
   `com.apple.developer.networking.multicast` (phải xin Apple duyệt). Khi được duyệt, thêm entitlement đó vào
   `ios.entitlements` trong `app.json`. Trên Android không cần.
 - TV Samsung trước 2016 (Orsay, port 55000), Panasonic chạy My Home Screen / Fire TV, Roku TV chưa được hỗ trợ.
-- Nhập văn bản trên Android TV chỉ hoạt động khi trên TV đang mở ô nhập liệu; với Samsung cần mở bàn phím ảo trên TV.
+- **Gõ chữ**: luôn chọn ô nhập liệu (ô tìm kiếm…) trên TV trước rồi mới gửi.
+  - Android TV: gửi được chữ có dấu khi ô nhập liệu được mở *sau khi* app đã kết nối (TV báo vị trí ô cho app). Nếu
+    bàn phím TV đã mở từ trước, hoặc TV không hỗ trợ nhập chữ qua mạng, app gõ từng phím: chỉ chữ thường không dấu,
+    số và một số ký hiệu. Khi đó hãy đóng rồi mở lại ô nhập liệu để gõ được tiếng Việt có dấu.
+  - LG: TV đã ghép nối từ phiên bản trước có thể hỏi *Chấp nhận* thêm một lần để cấp quyền gõ chữ.
+  - Samsung: cần mở bàn phím ảo trên TV.
 - Mã ứng dụng (YouTube, Netflix…) có thể khác nhau tuỳ khu vực/đời TV.

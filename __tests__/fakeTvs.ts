@@ -32,6 +32,11 @@ export class FakeAndroidTv {
   readonly keys: number[] = [];
   readonly appLinks: string[] = [];
   readonly texts: string[] = [];
+  /** [ime_counter, field_counter] of each text edit the phone sent. */
+  readonly textCounters: [number, number][] = [];
+  /** Feature bits this TV announces (622 includes IME = 4). */
+  features = 622;
+  private remoteSocket?: tls.TLSSocket;
   private servers: tls.Server[] = [];
   private tlsCreds = selfSignedCert('fake-android-tv');
   private serverPub = crypto.createPublicKey(this.tlsCreds.cert).export({ format: 'jwk' }) as any;
@@ -111,11 +116,22 @@ export class FakeAndroidTv {
           send(new ProtoWriter().message(40, new ProtoWriter().bool(1, true)));
         } else if (msg.has(10)) this.keys.push(msg.message(10)!.uint(1));
         else if (msg.has(90)) this.appLinks.push(msg.message(90)!.string(1));
-        else if (msg.has(21)) this.texts.push(msg.message(21)!.message(3)!.message(2)!.string(3));
+        else if (msg.has(21)) {
+          const edit = msg.message(21)!;
+          this.texts.push(edit.message(3)!.message(2)!.string(3));
+          this.textCounters.push([edit.uint(1), edit.uint(2)]);
+        }
       }
     });
+    this.remoteSocket = socket;
     const info = new ProtoWriter().string(1, 'BRAVIA 4K').string(2, 'Sony');
-    send(new ProtoWriter().message(1, new ProtoWriter().uint(1, 622).message(2, info)));
+    send(new ProtoWriter().message(1, new ProtoWriter().uint(1, this.features).message(2, info)));
+  }
+
+  /** A text field gains focus on the TV: it reports the IME counters of that field. */
+  openTextField(imeCounter: number, fieldCounter: number) {
+    const edit = new ProtoWriter().uint(1, imeCounter).uint(2, fieldCounter);
+    this.remoteSocket?.write(frameDelimited(new ProtoWriter().message(21, edit).finish()));
   }
 }
 
@@ -124,6 +140,7 @@ export class FakeLgTv {
   readonly calls: string[] = [];
   readonly buttons: string[] = [];
   registrations = 0;
+  lastRegistration: any;
   private server?: https.Server;
   private wss?: WebSocketServer;
 
@@ -143,6 +160,7 @@ export class FakeLgTv {
         const reply = (o: object) => ws.send(JSON.stringify({ id: msg.id, ...o }));
         if (msg.type === 'register') {
           this.registrations++;
+          this.lastRegistration = msg.payload;
           if (msg.payload['client-key'] === 'KEY123') {
             reply({ type: 'registered', payload: { 'client-key': 'KEY123' } });
           } else {
@@ -177,6 +195,11 @@ export class FakeLgTv {
 /** Samsung Tizen 2016-2017 style: plain ws on 8001, no TLS port. */
 export class FakeSamsungTv {
   readonly messages: any[] = [];
+
+  /** Sends an event to every connected remote, e.g. ms.remote.imeStart when a keyboard opens. */
+  emit(event: string) {
+    this.wss?.clients.forEach((c) => c.send(JSON.stringify({ event })));
+  }
   private server?: http.Server;
   private wss?: WebSocketServer;
 
