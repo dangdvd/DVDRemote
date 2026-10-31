@@ -42,11 +42,15 @@ describe('Android TV driver against a fake Sony Bravia', () => {
     await driver.sendKey('POWER');
     await driver.sendKey('VOL_UP');
     await driver.launchApp!('youtube');
+    // A search field gains focus on the TV, which reports its IME counters.
+    tv.openTextField(3, 7);
+    await new Promise((r) => setTimeout(r, 100));
     await driver.sendText!('xin chào');
     await waitFor(() => tv.keys.length === 2 && tv.appLinks.length === 1 && tv.texts.length === 1);
     expect(tv.keys).toEqual([26, 24]);
     expect(tv.appLinks).toEqual(['https://www.youtube.com']);
     expect(tv.texts).toEqual(['xin chào']);
+    expect(tv.textCounters).toEqual([[3, 7]]);
     driver.disconnect();
 
     // Second connection reuses the pairing: no code needed.
@@ -58,6 +62,38 @@ describe('Android TV driver against a fake Sony Bravia', () => {
     await waitFor(() => tv.keys.length === 3);
     expect(tv.keys[2]).toBe(3);
     again.disconnect();
+  });
+
+  it('types text as key presses when the TV has not reported a text field', async () => {
+    // E.g. the TV keyboard was already open before the phone connected.
+    const device: TvDevice = { id: 'a', name: 'Sony', host: '127.0.0.1', kind: 'androidtv', credentials: { paired: '1' } };
+    const driver = createDriver(device);
+    await driver.connect(context(device).ctx);
+    const before = tv.keys.length;
+    await driver.sendText!('Ab 1');
+    await waitFor(() => tv.keys.length === before + 4);
+    expect(tv.keys.slice(before)).toEqual([29, 30, 62, 8]); // a b space 1
+    // Diacritics have no keys: fall back to the IME edit as the best effort.
+    await driver.sendText!('Việt');
+    await waitFor(() => tv.texts.includes('Việt'));
+    driver.disconnect();
+  });
+
+  it('explains when a TV without the IME feature gets text with diacritics', async () => {
+    tv.features = 622 & ~4;
+    try {
+      const device: TvDevice = { id: 'a', name: 'TCL', host: '127.0.0.1', kind: 'androidtv', credentials: { paired: '1' } };
+      const driver = createDriver(device);
+      await driver.connect(context(device).ctx);
+      await expect(driver.sendText!('Việt')).rejects.toThrow('không dấu');
+      const before = tv.keys.length;
+      await driver.sendText!('ok');
+      await waitFor(() => tv.keys.length === before + 2);
+      expect(tv.keys.slice(before)).toEqual([43, 39]);
+      driver.disconnect();
+    } finally {
+      tv.features = 622;
+    }
   });
 
   it('rejects a cancelled pairing', async () => {
@@ -82,6 +118,12 @@ describe('LG webOS driver against a fake TV on wss:3001', () => {
     expect(notes.join(' ')).toContain('Chấp nhận');
     expect(device.credentials?.clientKey).toBe('KEY123');
     expect(device.mac).toBe('aa:bb:cc:dd:ee:ff');
+    // Text input and mouse must be asked for in the unsigned list too, not only the signed one.
+    expect(tv.lastRegistration.manifest.permissions).toEqual(
+      expect.arrayContaining(['CONTROL_INPUT_TEXT', 'CONTROL_MOUSE_AND_KEYBOARD']),
+    );
+    await driver.sendText!('Tiếng Việt');
+    await waitFor(() => tv.calls.includes('ssap://com.webos.service.ime/insertText'));
 
     await driver.sendKey('UP');
     await driver.sendKey('OK');
@@ -108,9 +150,29 @@ describe('Samsung Tizen driver against a fake 2017 TV on ws:8001', () => {
 
     await driver.sendKey('VOL_UP');
     await driver.sendText!('Tiếng Việt');
-    await waitFor(() => tv.messages.length === 3);
+    await driver.movePointer!(12.4, -7.6);
+    await waitFor(() => tv.messages.length === 5);
     expect(tv.messages[0].params.DataOfCmd).toBe('KEY_VOLUP');
-    expect(Buffer.from(tv.messages[1].params.Cmd, 'base64').toString('utf8')).toBe('Tiếng Việt');
+    // Some models ignore text until this broadcast was sent in the keyboard session.
+    expect(tv.messages[1]).toEqual({ method: 'ms.channel.emit', params: { event: 'custom.remote.textReceived', to: 'broadcast' } });
+    expect(Buffer.from(tv.messages[2].params.Cmd, 'base64').toString('utf8')).toBe('Tiếng Việt');
+    expect(tv.messages[3].params).toEqual({ TypeOfRemote: 'SendInputEnd' });
+    // Relative move; Time is the move duration in ms, not a timestamp.
+    expect(tv.messages[4].params).toEqual({
+      Cmd: 'Move',
+      Position: { x: 12, y: -8, Time: '0' },
+      TypeOfRemote: 'ProcessMouseDevice',
+    });
+
+    // Same keyboard session: no second announcement. A new session (imeStart) announces again.
+    await driver.sendText!('abc');
+    await waitFor(() => tv.messages.length === 7);
+    expect(tv.messages[5].params.TypeOfRemote).toBe('SendInputString');
+    tv.emit('ms.remote.imeStart');
+    await new Promise((r) => setTimeout(r, 100));
+    await driver.sendText!('xyz');
+    await waitFor(() => tv.messages.length === 10);
+    expect(tv.messages[7].params.event).toBe('custom.remote.textReceived');
     driver.disconnect();
   });
 });
