@@ -68,7 +68,8 @@ npm start                                                          # sau đó ch
 
 ### Phát hành (GitHub Releases)
 
-Workflow `.github/workflows/release.yml` tự động chạy test, build và đăng bản phát hành khi có tag phiên bản:
+Workflow `.github/workflows/release.yml` chạy test và build trên mọi pull request vào `main` (file APK/IPA tải được
+ở mục *Artifacts* của lần chạy trong tab Actions), và đăng bản phát hành khi có tag phiên bản:
 
 ```bash
 git tag v1.0.1
