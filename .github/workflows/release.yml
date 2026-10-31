@@ -101,8 +101,9 @@ jobs:
 
   ios:
     needs: test
-    # Expo SDK 58 builds its ExpoModulesJSI framework with Swift 6 during the app build and is
-    # developed against Xcode 27; Xcode 26.x rejects it ("sending 'slot' risks causing data races").
+    # Expo SDK 58 builds its ExpoModulesJSI framework with Swift 6 during the app build. Xcode 26.3
+    # (Swift 6.2, latest-stable on macos-15) rejects it ("sending 'slot' risks causing data races"),
+    # so use the newest Xcode of the macos-26 image.
     runs-on: macos-26
     timeout-minutes: 90
     steps:
@@ -111,7 +112,7 @@ jobs:
         run: ls -d /Applications/Xcode*.app
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '27'
+          xcode-version: latest-stable
       - run: xcodebuild -version
       - uses: actions/setup-node@v4
         with:
