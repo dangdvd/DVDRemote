@@ -167,7 +167,8 @@ export class TizenDriver implements TvDriver {
   async movePointer(dx: number, dy: number): Promise<void> {
     this.send({
       Cmd: 'Move',
-      Position: { x: Math.round(dx), y: Math.round(dy), Time: String(Date.now()) },
+      // Time is how long the move takes in ms (not a timestamp); 0 moves at once.
+      Position: { x: Math.round(dx), y: Math.round(dy), Time: '0' },
       TypeOfRemote: 'ProcessMouseDevice',
     });
   }

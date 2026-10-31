@@ -7,7 +7,7 @@ import { wakeOnLan } from '../../net/wol';
 import { DPad } from '../components/DPad';
 import { PromptModal } from '../components/PromptModal';
 import { RemoteButton } from '../components/RemoteButton';
-import { Touchpad } from '../components/Touchpad';
+import { Touchpad, TouchpadMode } from '../components/Touchpad';
 import { colors } from '../theme';
 import { useRemote } from '../useRemote';
 
@@ -32,9 +32,13 @@ export function RemoteScreen({ device, onBack, onSaveDevice }: Props) {
   const [tab, setTab] = useState<Tab>('remote');
   const [typing, setTyping] = useState(false);
   const [info, setInfo] = useState('');
+  const [padMode, setPadMode] = useState<TouchpadMode | null>(null);
+  const [padActive, setPadActive] = useState(false);
 
   const key = (k: RemoteKey) => run((d) => d.sendKey(k));
   const caps = driver?.capabilities;
+  // TVs with a cursor (LG, Samsung) start in pointer mode; the others only have swipe mode.
+  const touchpadMode: TouchpadMode = caps?.pointer ? (padMode ?? 'pointer') : 'swipe';
 
   const power = async () => {
     if (status === 'connected') return key('POWER');
@@ -90,7 +94,7 @@ export function RemoteScreen({ device, onBack, onSaveDevice }: Props) {
           [
             ['remote', 'Điều khiển'],
             ['numbers', 'Số & Màu'],
-            ...(caps?.pointer ? [['touchpad', 'Touchpad']] : []),
+            ['touchpad', 'Touchpad'],
           ] as [Tab, string][]
         ).map(([id, label]) => (
           <Pressable key={id} onPress={() => setTab(id)} style={[styles.tab, tab === id && styles.tabActive]}>
@@ -99,7 +103,7 @@ export function RemoteScreen({ device, onBack, onSaveDevice }: Props) {
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} scrollEnabled={!padActive}>
         <View style={styles.row}>
           <RemoteButton label="Nguồn vào" small onPress={() => key('SOURCE')} />
           <RemoteButton label="Cài đặt" small onPress={() => key('SETTINGS')} />
@@ -132,12 +136,39 @@ export function RemoteScreen({ device, onBack, onSaveDevice }: Props) {
           </View>
         ) : null}
 
-        {tab === 'touchpad' && driver?.movePointer ? (
-          <Touchpad
-            onMove={(dx, dy) => run((d) => d.movePointer?.(dx, dy))}
-            onClick={() => run((d) => d.click?.())}
-            onScroll={driver.scroll ? (dy) => run((d) => d.scroll?.(dy)) : undefined}
-          />
+        {tab === 'touchpad' ? (
+          <View style={styles.touchpadArea}>
+            {caps?.pointer ? (
+              <View style={styles.modeSwitch}>
+                {(
+                  [
+                    ['pointer', 'Con trỏ chuột'],
+                    ['swipe', 'Vuốt'],
+                  ] as [TouchpadMode, string][]
+                ).map(([id, label]) => (
+                  <Pressable
+                    key={id}
+                    onPress={() => setPadMode(id)}
+                    style={[styles.modeButton, touchpadMode === id && styles.tabActive]}
+                  >
+                    <Text style={[styles.tabText, touchpadMode === id && styles.tabTextActive]}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.note}>
+                TV này không có con trỏ chuột qua Wi-Fi: vuốt trên touchpad để di chuyển vùng chọn như phím mũi tên.
+              </Text>
+            )}
+            <Touchpad
+              mode={touchpadMode}
+              onTap={() => (touchpadMode === 'pointer' ? run((d) => d.click?.()) : key('OK'))}
+              onMove={(dx, dy) => run((d) => d.movePointer?.(dx, dy))}
+              onScroll={driver?.scroll ? (dy) => run((d) => d.scroll?.(dy)) : undefined}
+              onSwipe={key}
+              onActiveChange={setPadActive}
+            />
+          </View>
         ) : null}
 
         <View style={styles.row}>
@@ -238,6 +269,10 @@ const styles = StyleSheet.create({
   tabText: { color: colors.textDim, fontWeight: '600', fontSize: 13 },
   tabTextActive: { color: colors.text },
   content: { padding: 16, gap: 18 },
+  touchpadArea: { gap: 10 },
+  modeSwitch: { flexDirection: 'row', backgroundColor: colors.surface, borderRadius: 12, padding: 4 },
+  modeButton: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
+  note: { color: colors.textDim, fontSize: 12, textAlign: 'center', lineHeight: 17 },
   row: { flexDirection: 'row', justifyContent: 'space-evenly', flexWrap: 'wrap', gap: 8 },
   numpad: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12, paddingHorizontal: 24 },
   num: { width: 72, height: 56 },
