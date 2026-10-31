@@ -66,6 +66,42 @@ npx eas-cli@latest build --profile development --platform android   # build dev 
 npm start                                                          # sau đó chỉ cần chạy Metro
 ```
 
+### Phát hành (GitHub Releases)
+
+Workflow `.github/workflows/release.yml` tự động chạy test, build và đăng bản phát hành khi có tag phiên bản:
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+Hoặc vào tab **Actions → Release → Run workflow** và nhập phiên bản (khi workflow đã nằm trên nhánh `main`).
+
+Mỗi bản phát hành gồm:
+
+| File | Dùng để |
+| --- | --- |
+| `DVDRemote-x.y.z.apk` | Cài trực tiếp trên điện thoại Android |
+| `DVDRemote-x.y.z.aab` | Đăng lên Google Play |
+| `DVDRemote-x.y.z-unsigned.ipa` | Cài trên iPhone bằng AltStore / Sideloadly / TrollStore (bản chưa ký) |
+
+Phiên bản trong tag (`v1.2.3`) được ghi vào app (versionCode Android / buildNumber iOS = `10203`).
+
+**Khoá ký Android (nên làm):** nếu không cấu hình, APK được ký bằng khoá debug công khai: vẫn cài được, nhưng không
+đăng được Google Play. Tạo khoá riêng một lần và lưu vào *Settings → Secrets and variables → Actions* của repo:
+
+```bash
+keytool -genkeypair -v -keystore release.keystore -alias dvdremote -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 release.keystore   # dán kết quả vào secret ANDROID_KEYSTORE_BASE64
+```
+
+Các secret: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
+Giữ file keystore cẩn thận: mất khoá thì không cập nhật được app trên Google Play. Lưu ý: đổi khoá ký thì người dùng
+phải gỡ bản cũ trước khi cài bản mới.
+
+**iPhone:** muốn phát hành qua App Store / TestFlight cần tài khoản Apple Developer, dùng
+`npx eas-cli build --platform ios --profile production` rồi `npx eas-cli submit --platform ios`.
+
 ### Kiểm tra
 
 ```bash
@@ -111,6 +147,9 @@ src/drivers/xiaomi-legacy.ts Xiaomi PatchWall đời cũ (HTTP 6095)
 src/discovery/               Tìm TV: mDNS + quét cổng
 src/ui/                      Giao diện: danh sách TV, remote, touchpad, hộp nhập mã
 __tests__/                   Test đơn vị + TV giả lập cho test tích hợp
+plugins/                     Config plugin Expo (ký APK bản phát hành)
+scripts/set-version.js       Ghi phiên bản từ tag vào app.json
+.github/workflows/release.yml Build APK/AAB/IPA và đăng GitHub Releases
 ```
 
 Mọi driver cài đặt cùng một interface `TvDriver` (`src/core/types.ts`), nên giao diện không phụ thuộc vào hãng TV.
