@@ -184,9 +184,9 @@ của React Native sẽ từ chối kết nối. App tự cài đặt WebSocket 
   `ios.entitlements` trong `app.json`. Trên Android không cần.
 - TV Samsung trước 2016 (Orsay, port 55000), Panasonic chạy My Home Screen / Fire TV, Roku TV chưa được hỗ trợ.
 - **Gõ chữ**: luôn chọn ô nhập liệu (ô tìm kiếm…) trên TV trước rồi mới gửi.
-  - Android TV: gửi được chữ có dấu khi ô nhập liệu được mở *sau khi* app đã kết nối (TV báo vị trí ô cho app). Nếu
-    bàn phím TV đã mở từ trước, hoặc TV không hỗ trợ nhập chữ qua mạng, app gõ từng phím: chỉ chữ thường không dấu,
-    số và một số ký hiệu. Khi đó hãy đóng rồi mở lại ô nhập liệu để gõ được tiếng Việt có dấu.
+  - Android TV: app gõ từng phím như bàn phím thật (chữ hoa/thường không dấu, số, ký hiệu), nên chạy được cả khi TV
+    đang hiện bàn phím riêng (TCL, Sony...). Chữ có dấu không có phím tương ứng nên được gửi qua kênh nhập liệu (IME)
+    của TV; nhiều TV bỏ qua kênh này khi bàn phím của TV đang mở, khi đó hãy gõ không dấu.
   - LG: TV đã ghép nối từ phiên bản trước có thể hỏi *Chấp nhận* thêm một lần để cấp quyền gõ chữ.
   - Samsung: cần mở bàn phím ảo trên TV.
 - Mã ứng dụng (YouTube, Netflix…) có thể khác nhau tuỳ khu vực/đời TV.

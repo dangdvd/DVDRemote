@@ -30,6 +30,8 @@ export class FakeAndroidTv {
   displayedCode = '';
   readonly paired = new Set<string>();
   readonly keys: number[] = [];
+  /** [key_code, direction] of every key inject (1 = down, 2 = up, 3 = press). */
+  readonly keyEvents: [number, number][] = [];
   readonly appLinks: string[] = [];
   readonly texts: string[] = [];
   /** [ime_counter, field_counter] of each text edit the phone sent. */
@@ -114,7 +116,10 @@ export class FakeAndroidTv {
         else if (msg.has(2)) send(new ProtoWriter().message(8, new ProtoWriter().uint(1, 7).uint(2, 1)));
         else if (msg.has(9) && msg.message(9)!.uint(1) === 7) {
           send(new ProtoWriter().message(40, new ProtoWriter().bool(1, true)));
-        } else if (msg.has(10)) this.keys.push(msg.message(10)!.uint(1));
+        } else if (msg.has(10)) {
+          this.keys.push(msg.message(10)!.uint(1));
+          this.keyEvents.push([msg.message(10)!.uint(1), msg.message(10)!.uint(2)]);
+        }
         else if (msg.has(90)) this.appLinks.push(msg.message(90)!.string(1));
         else if (msg.has(21)) {
           const edit = msg.message(21)!;

@@ -251,7 +251,11 @@ export function RemoteScreen({ device, onBack, onSaveDevice }: Props) {
       <PromptModal
         visible={typing}
         title="Gửi văn bản tới TV"
-        message="Hãy chọn ô nhập liệu (ô tìm kiếm...) trên TV trước khi gửi."
+        message={
+          device.kind === 'androidtv'
+            ? 'Hãy chọn ô nhập liệu (ô tìm kiếm...) trên TV trước khi gửi. Chữ có dấu có thể không lên khi TV đang hiện bàn phím riêng của TV; khi đó hãy gõ không dấu.'
+            : 'Hãy chọn ô nhập liệu (ô tìm kiếm...) trên TV trước khi gửi.'
+        }
         placeholder="Nhập nội dung..."
         confirmLabel="Gửi"
         onSubmit={(text) => {
