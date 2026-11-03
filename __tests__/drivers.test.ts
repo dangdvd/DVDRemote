@@ -64,18 +64,39 @@ describe('Android TV driver against a fake Sony Bravia', () => {
     again.disconnect();
   });
 
-  it('types text as key presses when the TV has not reported a text field', async () => {
-    // E.g. the TV keyboard was already open before the phone connected.
+  it('types text as key presses, holding Shift for capitals and symbols', async () => {
     const device: TvDevice = { id: 'a', name: 'Sony', host: '127.0.0.1', kind: 'androidtv', credentials: { paired: '1' } };
     const driver = createDriver(device);
     await driver.connect(context(device).ctx);
-    const before = tv.keys.length;
-    await driver.sendText!('Ab 1');
-    await waitFor(() => tv.keys.length === before + 4);
-    expect(tv.keys.slice(before)).toEqual([29, 30, 62, 8]); // a b space 1
+    const before = tv.keyEvents.length;
+    await driver.sendText!('Ab 1?');
+    await waitFor(() => tv.keyEvents.length === before + 9);
+    expect(tv.keyEvents.slice(before)).toEqual([
+      [59, 1], [29, 3], [59, 2], // Shift down, A, Shift up
+      [30, 3], // b
+      [62, 3], // space
+      [8, 3], // 1
+      [59, 1], [76, 3], [59, 2], // Shift + / = ?
+    ]);
     // Diacritics have no keys: fall back to the IME edit as the best effort.
     await driver.sendText!('Việt');
     await waitFor(() => tv.texts.includes('Việt'));
+    driver.disconnect();
+  });
+
+  it('still types plain text as keys while the TV keyboard reports its field', async () => {
+    // A TCL search field with the TV's own keyboard on screen: IME edits are ignored there.
+    const device: TvDevice = { id: 'a', name: 'TCL', host: '127.0.0.1', kind: 'androidtv', credentials: { paired: '1' } };
+    const driver = createDriver(device);
+    await driver.connect(context(device).ctx);
+    tv.openTextField(5, 9);
+    await new Promise((r) => setTimeout(r, 100));
+    const textsBefore = tv.texts.length;
+    const before = tv.keys.length;
+    await driver.sendText!('hello');
+    await waitFor(() => tv.keys.length === before + 5);
+    expect(tv.keys.slice(before)).toEqual([36, 33, 40, 40, 43]); // h e l l o
+    expect(tv.texts.length).toBe(textsBefore);
     driver.disconnect();
   });
 

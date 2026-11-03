@@ -14,6 +14,7 @@ import { ProtoConnection } from './connection';
 import { ANDROID_KEYCODES } from './keycodes';
 import {
   CLIENT_FEATURES,
+  Direction,
   Feature,
   Remote,
   REMOTE_PORT,
@@ -25,7 +26,7 @@ import {
   remoteSetActive,
 } from './messages';
 import { pairAndroidTv } from './pairing';
-import { textToKeyCodes } from './textKeys';
+import { KEYCODE_SHIFT_LEFT, textToKeyPresses } from './textKeys';
 
 const APP_LINKS: Record<AppId, string> = {
   youtube: 'https://www.youtube.com',
@@ -36,6 +37,7 @@ const APP_LINKS: Record<AppId, string> = {
 };
 
 const READY_TIMEOUT_MS = 8000;
+const KEY_GAP_MS = 20;
 
 /**
  * Android TV Remote Service v2 – the protocol used by the official Google TV app.
@@ -55,8 +57,6 @@ export class AndroidTvDriver implements TvDriver {
   private fieldCounter = 0;
   /** The TV accepted the IME feature, so it can take whole strings (any language). */
   private imeSupported = false;
-  /** The TV told us about its focused text field, so imeCounter/fieldCounter are current. */
-  private imeFieldKnown = false;
   private manualClose = false;
 
   constructor(private readonly device: TvDevice) {}
@@ -93,7 +93,6 @@ export class AndroidTvDriver implements TvDriver {
 
   private async openRemote(identity: Awaited<ReturnType<typeof getClientIdentity>>): Promise<void> {
     const conn = await ProtoConnection.open(this.device.host, REMOTE_PORT, identity);
-    this.imeFieldKnown = false;
     let features = CLIENT_FEATURES;
     await new Promise<void>((resolve, reject) => {
       let ready = false;
@@ -141,7 +140,6 @@ export class AndroidTvDriver implements TvDriver {
           const edit = msg.message(Remote.IME_BATCH_EDIT);
           this.imeCounter = edit?.uint(1) ?? 0;
           this.fieldCounter = edit?.uint(2) ?? 0;
-          this.imeFieldKnown = true;
         } else if (msg.has(Remote.ERROR)) {
           if (!ready) fail(new Error('TV báo lỗi kết nối'));
         }
@@ -165,23 +163,26 @@ export class AndroidTvDriver implements TvDriver {
   }
 
   /**
-   * The TV ignores an IME edit whose counters do not match its focused field. It sends them only
-   * when a field gains focus while we are connected, so a keyboard that was already open, or a TV
-   * without the IME feature, gets the text typed as key presses instead.
+   * Text is typed as key presses, like a hardware keyboard: that works whether or not the TV
+   * shows its own on-screen keyboard. IME edits are ignored by many TVs while that keyboard is
+   * open (androidtvremote2: "may not work as expected if virtual keyboard is present"), and when
+   * their counters do not match the focused field, so they are only used for text no key can
+   * type (Vietnamese diacritics).
    */
   async sendText(text: string): Promise<void> {
     if (!text) return;
-    if (this.imeSupported && this.imeFieldKnown) {
-      this.send(remoteImeText(text, this.imeCounter, this.fieldCounter));
-      return;
-    }
-    const codes = textToKeyCodes(text);
-    if (codes) {
-      for (const code of codes) this.send(remoteKeyInject(code));
+    const presses = textToKeyPresses(text);
+    if (presses) {
+      for (const { code, shift } of presses) {
+        if (shift) this.send(remoteKeyInject(KEYCODE_SHIFT_LEFT, Direction.START_LONG));
+        this.send(remoteKeyInject(code));
+        if (shift) this.send(remoteKeyInject(KEYCODE_SHIFT_LEFT, Direction.END_LONG));
+        // A short gap keeps fast typing from being dropped by slower TV keyboards.
+        await new Promise((r) => setTimeout(r, KEY_GAP_MS));
+      }
       return;
     }
     if (this.imeSupported) {
-      // Best effort for text that has no keys (Vietnamese diacritics): counters may be stale.
       this.send(remoteImeText(text, this.imeCounter, this.fieldCounter));
       return;
     }
