@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DeviceKind, TvDevice } from '../../core/types';
 import { isValidIPv4 } from '../../discovery/classify';
@@ -42,7 +42,12 @@ export function DevicesScreen({ devices, onOpen, onAdd, onRemove }: Props) {
         () => stopRef.current,
       );
       if (!result.length && !stopRef.current) {
-        setScanError('Không tìm thấy TV nào. Hãy chắc chắn TV đang bật và cùng mạng Wi-Fi, hoặc thêm thủ công bằng địa chỉ IP.');
+        setScanError(
+          'Không tìm thấy TV nào. Hãy chắc chắn TV đang bật (không ở chế độ chờ) và cùng mạng Wi-Fi, hoặc thêm thủ công bằng địa chỉ IP.' +
+            (Platform.OS === 'ios'
+              ? '\nTrên iPhone: Cài đặt → Quyền riêng tư & Bảo mật → Mạng cục bộ → bật DVD Remote, rồi quét lại.'
+              : ''),
+        );
       }
     } catch (err: any) {
       setScanError(err?.message ?? String(err));
