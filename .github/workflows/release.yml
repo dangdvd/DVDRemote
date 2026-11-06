@@ -99,56 +99,35 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  # GitHub sometimes cancels the iOS job after it waited 15 minutes for a macOS runner, before
+  # any step ran; a new attempt usually gets one at once. So up to two more attempts run, each
+  # only when the previous one was cancelled.
   ios:
     needs: test
-    # Expo SDK 58 builds its ExpoModulesJSI framework with Swift 6 during the app build. Xcode 26.3
-    # (Swift 6.2, latest-stable on macos-15) rejects it ("sending 'slot' risks causing data races"),
-    # so use the newest Xcode of the macos-26 image.
-    runs-on: macos-26
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v4
-      - name: List installed Xcode versions
-        run: ls -d /Applications/Xcode*.app
-      - uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-      - run: xcodebuild -version
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Set version
-        run: |
-          if [ -n "$VERSION" ]; then node scripts/set-version.js "$VERSION"; fi
-          echo "APP_VERSION=$(node -p "require('./app.json').expo.version")" >> "$GITHUB_ENV"
-      - name: Generate native project
-        run: npx expo prebuild --platform ios
-      - name: Build unsigned IPA
-        working-directory: ios
-        run: |
-          set -o pipefail
-          WORKSPACE=$(ls -d *.xcworkspace | head -1)
-          SCHEME="${WORKSPACE%.xcworkspace}"
-          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release \
-            -sdk iphoneos -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/app.xcarchive" archive \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
-          V="$APP_VERSION"
-          mkdir -p "$RUNNER_TEMP/ipa/Payload" ../dist
-          cp -R "$RUNNER_TEMP/app.xcarchive/Products/Applications/"*.app "$RUNNER_TEMP/ipa/Payload/"
-          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/dist/DVDRemote-$V-unsigned.ipa" Payload)
-          ls -la ../dist
-      - uses: actions/upload-artifact@v4
-        with:
-          name: DVDRemote-ios-ipa
-          path: dist/*
-          if-no-files-found: error
+    uses: ./.github/workflows/build-ios.yml
+    with:
+      version: ${{ inputs.version || (github.ref_type == 'tag' && github.ref_name) || '' }}
+
+  ios-retry-1:
+    needs: ios
+    # !cancelled() is still true when only a job was cancelled (run 41660458344's release job ran
+    # after its iOS job was), and false when someone cancels the whole run.
+    if: ${{ !cancelled() && needs.ios.result == 'cancelled' }}
+    uses: ./.github/workflows/build-ios.yml
+    with:
+      version: ${{ inputs.version || (github.ref_type == 'tag' && github.ref_name) || '' }}
+
+  ios-retry-2:
+    needs: ios-retry-1
+    if: ${{ !cancelled() && needs.ios-retry-1.result == 'cancelled' }}
+    uses: ./.github/workflows/build-ios.yml
+    with:
+      version: ${{ inputs.version || (github.ref_type == 'tag' && github.ref_name) || '' }}
 
   release:
-    # iOS is best effort: publish the Android build even if the iOS build fails.
-    needs: [android, ios]
+    # iOS is best effort: publish the Android build even if every iOS attempt fails. Waiting for
+    # the retries keeps the release from going out before a retried IPA is ready.
+    needs: [android, ios, ios-retry-1, ios-retry-2]
     if: ${{ !cancelled() && needs.android.result == 'success' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
